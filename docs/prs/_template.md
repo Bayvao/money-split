@@ -28,12 +28,18 @@ Describe the user-visible or system capability delivered by this pull request.
 ### Acceptance criteria
 
 - [ ] State observable behavior that must be true.
+- [ ] Every new or changed Java method and constructor has JavaDoc, and important non-obvious logic or SQL has intent-focused comments.
 
 ## What Was Implemented
 
 ### Application changes
 
 - Describe the application and domain behavior actually implemented.
+
+### Code documentation
+
+- Confirm that every new or changed Java method and constructor has JavaDoc describing its responsibility and contract.
+- Identify the important business rules, algorithms, transaction/lock ordering, and SQL queries whose intent or mechanics are explained inline, or state `N/A`.
 
 ### API changes
 

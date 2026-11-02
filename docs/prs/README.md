@@ -33,11 +33,12 @@ Every change record must clearly contain these sections:
 2. **What Was Implemented** - code, API, data model, configuration, security, and operational changes actually made.
 3. **Technical Test Cases Implemented** - automated test cases, their level, and the behavior or risk each case verifies.
 4. **Commit Message** - exact final/squash commit message, or the ordered commit messages when multiple commits will be retained.
+5. **Code Documentation** - confirmation that every new or changed Java method and constructor has JavaDoc, plus the important business logic and SQL whose intent or mechanics were documented inline.
 
-The supplied template also captures schema/API compatibility, validation evidence, and deferred work. Remove optional rows that do not apply, but do not remove the four mandatory sections.
+The supplied template also captures schema/API compatibility, validation evidence, and deferred work. Remove optional rows that do not apply, but do not remove the five mandatory sections.
 
-For a documentation-only PR, the technical-test section must explicitly state that no runtime tests were added and list any documentation checks performed. It must not claim application test coverage.
+For a documentation-only PR, the technical-test section must explicitly state that no runtime tests were added and list any documentation checks performed. It must not claim application test coverage. Its code-documentation section may state that no Java or SQL changed.
 
 ## Review rule
 
-A pull request is not complete when its change record is missing, describes intended work instead of actual work, lists test commands without identifying the technical cases they cover, or omits the exact commit message.
+A pull request is not complete when its change record is missing, describes intended work instead of actual work, lists test commands without identifying the technical cases they cover, omits the exact commit message, or fails to account for JavaDoc and important inline/query comments.

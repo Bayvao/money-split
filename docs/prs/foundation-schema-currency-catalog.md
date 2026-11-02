@@ -24,6 +24,12 @@ docs(pr): link foundation schema pull request
 Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 ```
 
+```text
+docs(standards): require JavaDoc and intent comments
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+```
+
 ## Feature
 
 Establish the initial Liquibase-managed MySQL contract and the exact currency catalog required by later identity and group features.
@@ -41,6 +47,7 @@ Establish the initial Liquibase-managed MySQL contract and the exact currency ca
 - [x] Membership has no role, owner, or administrator field.
 - [x] New group ledger, synchronization, and resource versions default to zero.
 - [x] A group cannot reference a currency outside the catalog.
+- [x] Every changed Java method and constructor has JavaDoc, and important SQL or setup mechanics have intent-focused comments.
 - [x] The complete Gradle check passes against MySQL 8.4.
 
 ## What Was Implemented
@@ -50,6 +57,12 @@ Establish the initial Liquibase-managed MySQL contract and the exact currency ca
 - Added only database bootstrap configuration; no domain or API behavior is introduced.
 - Added JavaDoc to the changed Java test methods and helpers.
 - Added focused comments explaining non-obvious schema, cleanup, and datasource decisions.
+
+### Code documentation
+
+- Documented every changed integration-test method, test helper, datasource setup method, and utility constructor with JavaDoc describing its responsibility and contract.
+- Documented why UUIDs use binary storage, OIDC identity uses binary collation, currencies are explicitly versioned, group counters start at zero, membership has no privilege field, and audit indexes use resource-first ordering.
+- Documented foreign-key-safe cleanup, MySQL metadata inspection, and synchronized single-container startup at the relevant code.
 
 ### API changes
 

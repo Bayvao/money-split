@@ -16,13 +16,15 @@ This plan does not include web or mobile implementation. It does include the RES
 1. Build one independently reviewable capability at a time. A behavior PR includes only the API, application, domain, persistence, security, tests, and documentation needed for that behavior.
 2. Allow a schema-only prerequisite only when it has direct MySQL integration tests and the next behavior depends on the database contract.
 3. Use TDD for domain and application behavior. Add the failing test before implementation; write migration tests before or with schema changes.
-4. Keep financial calculations pure and independent of Spring, SQL, clocks, networks, and providers.
-5. Use MySQL for persistence integration tests. Do not use H2 as a substitute for MySQL constraints or locking.
-6. Apply Liquibase migrations before adding repository code that depends on them.
-7. Keep external identity, FX, and notification vendors behind narrow ports. Select vendors at the latest responsible milestone.
-8. Keep controllers thin. They validate transport input and call application services; they do not calculate balances or access JDBC directly.
-9. Keep the immutable journal and revisions authoritative. Treat balances and reports as rebuildable projections.
-10. Do not introduce message brokers, Redis, Kubernetes, JPA, event sourcing frameworks, or service decomposition before a measured need.
+4. Add JavaDoc to every new or changed Java method and constructor, including test methods and helpers. State what it does and document parameters, return values, and declared exceptions where applicable. Use `{@inheritDoc}` only when the inherited contract is complete.
+5. Inside methods, add concise intent comments before important or non-obvious business rules, algorithms, transaction or lock ordering, and SQL. Query comments explain purpose, authorization scope, filtering, joins, or locking behavior rather than restating syntax.
+6. Keep financial calculations pure and independent of Spring, SQL, clocks, networks, and providers.
+7. Use MySQL for persistence integration tests. Do not use H2 as a substitute for MySQL constraints or locking.
+8. Apply Liquibase migrations before adding repository code that depends on them.
+9. Keep external identity, FX, and notification vendors behind narrow ports. Select vendors at the latest responsible milestone.
+10. Keep controllers thin. They validate transport input and call application services; they do not calculate balances or access JDBC directly.
+11. Keep the immutable journal and revisions authoritative. Treat balances and reports as rebuildable projections.
+12. Do not introduce message brokers, Redis, Kubernetes, JPA, event sourcing frameworks, or service decomposition before a measured need.
 
 ## 3. Current project assessment
 
@@ -808,6 +810,8 @@ Concurrency tests must coordinate transactions with latches/barriers and assert 
 - Behavior and acceptance criteria are explicit.
 - A dedicated `docs\prs\<feature-slug>.md` change record follows `docs\prs\_template.md` and documents the exact commit message, feature, actual implementation, and technical test cases implemented.
 - Failing tests were added before or with the implementation.
+- Every new or changed Java method and constructor has useful JavaDoc describing its contract; test methods describe the behavior they verify.
+- Important business logic, algorithms, transaction/lock ordering, and SQL have concise comments explaining intent or mechanics without narrating obvious syntax.
 - Changed code has at least 80% line and branch coverage.
 - Unit tests are hermetic and fast.
 - MySQL-specific behavior has MySQL integration coverage.
