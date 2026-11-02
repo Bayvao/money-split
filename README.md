@@ -106,6 +106,11 @@ enforces at least 80% line and branch coverage:
 The HTML coverage report is generated at
 `build/reports/jacoco/test/html/index.html`.
 
+See the
+[F02 JWT request-security local testing guide](docs/testing/f02-jwt-request-security-local-testing.md)
+for targeted test commands, manual OIDC smoke tests, expected responses, and
+troubleshooting.
+
 ## Technical design
 
 See [the technical design document](docs/design.md) for the proposed MVP architecture, confirmed requirements, permission model, financial algorithms, multi-currency handling, database model, APIs, offline synchronization, and delivery roadmap.

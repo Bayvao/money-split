@@ -24,6 +24,12 @@ docs(pr): link JWT request security pull request
 Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 ```
 
+```text
+docs(testing): add JWT local testing guide
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+```
+
 ## Feature
 
 Establish the backend request-security boundary so only explicitly public
@@ -90,6 +96,8 @@ an `X-Request-ID` header.
 - Added Spring Security test support.
 - Added JaCoCo 0.8.14 with aggregate unit/integration reporting and 80% line and branch gates.
 - Added a `test`-profile decoder that rejects raw tokens without contacting an external identity provider.
+- Added a local-testing guide for targeted Gradle tests, isolated MySQL usage,
+  manual OIDC smoke tests, expected HTTP responses, and troubleshooting.
 
 ### Security and operational behavior
 
