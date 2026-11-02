@@ -2,16 +2,24 @@
 
 | Field | Value |
 |---|---|
-| Status | Ready for pull request |
+| Status | Pull request open |
 | Branch | `feat/foundation-schema` |
-| Pull request | Pending |
+| Pull request | [#3](https://github.com/Bayvao/money-split/pull/3) |
 | Date | 2026-11-02 |
 | Related plan item | F01 - Foundation schema and currency catalog |
 
 ## Commit Message
 
+The pull request retains these commits in order:
+
 ```text
 feat(database): add foundation schema and currency catalog
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+```
+
+```text
+docs(pr): link foundation schema pull request
 
 Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 ```
