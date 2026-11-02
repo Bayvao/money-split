@@ -15,7 +15,7 @@ The repository is public, so GitHub CodeQL and Dependency Review are available w
 | Dependency Review | New vulnerable Gradle or Actions dependencies at moderate severity or above | Pull request | Yes |
 | Dependency Submission | Complete Gradle dependency graph for alerts and Dependabot | `master`, manual | Operational |
 | Trivy | Dependency CVEs, committed secrets, and repository misconfiguration | Pull request, `master`, weekly, manual | Fixable high/critical findings |
-| Zizmor | GitHub Actions and Dependabot security analysis | Workflow changes, weekly, manual | Medium-or-higher, medium-confidence findings |
+| Zizmor | GitHub Actions and Dependabot security analysis | Pull request, workflow changes on `master`, weekly, manual | Medium-or-higher, medium-confidence findings |
 | Dependabot | Gradle and GitHub Actions update pull requests | Weekly | Review required |
 | OWASP ZAP API Scan | Active DAST from an OpenAPI definition | Authorized manual run | Required before release, not before PR 1 |
 
@@ -52,23 +52,29 @@ Revisit the selection only when a requirement is not covered or organizational t
 - Workflow checkouts disable credential persistence because no job needs authenticated Git commands.
 - Container image digests must be reviewed and refreshed deliberately; mutable tags are not executed directly.
 
-## Required repository settings
+## Repository security settings
 
-After these workflows reach `master`, configure GitHub:
+The following settings were enabled while establishing this baseline:
 
-1. Enable the dependency graph, Dependabot alerts, Dependabot security updates, code scanning, secret scanning, push protection, and private vulnerability reporting.
-2. Protect `master` and require pull requests.
-3. Require these status checks after each has completed at least once:
+- Dependency graph and Dependabot vulnerability alerts.
+- Dependabot security updates.
+- Secret scanning and push protection.
+- Private vulnerability reporting.
+- Read-only default workflow permissions, without permission for Actions to approve pull requests.
+
+After these workflows reach `master`, configure branch protection:
+
+1. Protect `master` and require pull requests.
+2. Require these status checks after each has completed at least once:
    - `CI / Build and test`
    - `CodeQL / Analyze Java`
    - `Dependency Review / Review dependency changes`
    - `Security Scan / Trivy repository scan`
    - `GitHub Actions Security / Audit workflow security`
-4. Require the branch to be current before merge and dismiss approvals when security-relevant code changes.
-5. Limit direct pushes and force pushes to `master`.
-6. Keep default workflow permissions read-only. The dependency-submission workflow alone requests `contents: write`.
+3. Require the branch to be current before merge and dismiss approvals when security-relevant code changes.
+4. Limit direct pushes and force pushes to `master`.
 
-Repository settings cannot be enforced solely by workflow files; a repository administrator must apply them.
+The dependency-submission workflow alone requests `contents: write`. Branch protection is deferred until these new checks exist on `master`; a repository administrator must then select the completed checks by name.
 
 ## Current bootstrap limitation
 

@@ -2,19 +2,27 @@
 
 | Field | Value |
 |---|---|
-| Status | Implemented |
+| Status | Validated in pull request |
 | Branch | `ci/github-actions-security` |
-| Pull request | Pending |
+| Pull request | [#2](https://github.com/Bayvao/money-split/pull/2) |
 | Date | 2026-11-02 |
 | Related plan item | Pre-PR 1 delivery and security foundation |
 
 ## Commit Message
+
+Planned squash commit message:
 
 ```text
 ci(security): add GitHub Actions security gates
 
 Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 ```
+
+Branch commit messages:
+
+- `ci(security): add GitHub Actions security gates`
+- `fix(ci): mark Gradle wrapper executable`
+- `fix(ci): make workflow security a stable gate`
 
 ## Feature
 
@@ -80,6 +88,7 @@ The ZAP workflow accepts a future HTTPS OpenAPI-definition URL; it does not add 
 - Added GitHub workflow and Dependabot configuration only.
 - Did not modify Gradle application dependencies; enabled dependency locking.
 - Added the generated `gradle.lockfile` as the reviewed dependency baseline.
+- Preserved the Unix executable bit on `gradlew` for GitHub-hosted Linux runners.
 - Pinned action releases to commit SHAs, pinned service/scanner container images by digest, and selected Gradle's open-source basic cache provider.
 - Added `docs\security-ci.md` with gates, limitations, tool rationale, and repository settings.
 
@@ -90,7 +99,8 @@ The ZAP workflow accepts a future HTTPS OpenAPI-definition URL; it does not add 
 - No external scanner credentials or accounts are required.
 - DAST requires an explicit authorization acknowledgement and HTTPS target.
 - Trivy SARIF is retained as an artifact and uploaded to code scanning when permissions allow.
-- Repository-admin settings remain a documented post-merge action.
+- Enabled the dependency graph, Dependabot alerts and security updates, secret scanning, push protection, private vulnerability reporting, and read-only default workflow permissions.
+- Branch protection remains a documented post-merge action because the new checks must first exist on `master`.
 
 ## Technical Test Cases Implemented
 
@@ -102,6 +112,7 @@ No application unit tests were required because production code did not change.
 |---|---|
 | Java 25 Gradle `clean check` | Project compiles and automated tests execute with the supported toolchain |
 | Gradle wrapper validation | Tampered or unknown wrapper JARs fail setup |
+| Linux Gradle wrapper execution | The committed executable bit allows `./gradlew` on GitHub-hosted runners |
 | MySQL service health gate | Tests start only after isolated MySQL accepts connections |
 | Failed-test artifact upload | Test reports remain available when the Gradle check fails |
 | Dependency graph generation | Resolved Gradle dependencies are submitted for alerts and review |
@@ -130,8 +141,9 @@ No application unit tests were required because production code did not change.
 | `.\gradlew.bat clean classes bootJar --no-daemon --stacktrace` with Java 25 | Passed |
 | `.\gradlew.bat dependencies --write-locks` with Java 25 | Passed; deterministic lock state generated |
 | Trivy 0.76.1 filesystem gate with development dependencies | Passed; no fixable high/critical vulnerabilities, secrets, or misconfigurations |
-| MySQL-backed `clean check` | Deferred to the pull-request workflow because the local Docker daemon is unavailable |
-| First GitHub Actions run | Pending pull request |
+| MySQL-backed `clean check` | Passed in `CI / Build and test` on pull request #2 |
+| GitHub-hosted security suite | Passed on corrected baseline commit `3889265`: CodeQL, Dependency Review, Trivy, and Zizmor |
+| Repository-native security settings | Enabled and confirmed through the GitHub API |
 
 ## Compatibility and Migration Notes
 
