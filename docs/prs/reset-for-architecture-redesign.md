@@ -2,9 +2,9 @@
 
 | Field | Value |
 |---|---|
-| Status | Draft |
+| Status | Pull request open |
 | Branch | `chore/reset-for-redesign` |
-| Pull request | Pending |
+| Pull request | [#5](https://github.com/Bayvao/money-split/pull/5) |
 | Date | 2026-11-02 |
 | Related plan item | N/A - retires the previous implementation plan |
 

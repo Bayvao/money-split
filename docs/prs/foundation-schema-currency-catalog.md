@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Merged in PR #3; implementation subsequently reverted for redesign |
+| Status | Merged in PR #3; implementation reverted by [PR #5](https://github.com/Bayvao/money-split/pull/5) |
 | Branch | `feat/foundation-schema` |
 | Pull request | [#3](https://github.com/Bayvao/money-split/pull/3) |
 | Date | 2026-11-02 |
