@@ -815,6 +815,7 @@ Concurrency tests must coordinate transactions with latches/barriers and assert 
 ### 12.1 Every PR
 
 - Behavior and acceptance criteria are explicit.
+- A dedicated `docs\prs\<feature-slug>.md` change record follows `docs\prs\_template.md` and documents the exact commit message, feature, actual implementation, and technical test cases implemented.
 - Failing tests were added before or with the implementation.
 - Changed code has at least 80% line and branch coverage.
 - Unit tests are hermetic and fast.

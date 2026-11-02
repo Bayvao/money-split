@@ -8,4 +8,6 @@ See [the technical design document](docs/design.md) for the proposed MVP archite
 
 See [the backend implementation plan](docs/backend-implementation-plan.md) for the backend-only sequence of PR-sized vertical slices, first implementation checklist, migrations, testing strategy, and delivery gates.
 
+See [the pull request documentation standard](docs/prs/README.md) for the required per-PR change record and reusable template.
+
 The design is a proposal; the described features are not yet implemented. The current Gradle build declares Java 25, Spring Boot 4.1.2, Spring Data JDBC, and Liquibase.
