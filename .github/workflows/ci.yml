@@ -43,6 +43,8 @@ jobs:
       SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/money_split_test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&connectionTimeZone=UTC
       SPRING_DATASOURCE_USERNAME: money_split
       SPRING_DATASOURCE_PASSWORD: money_split_password
+      # PR 1 replaces this temporary override with the first real changelog.
+      SPRING_LIQUIBASE_ENABLED: "false"
 
     steps:
       - name: Check out repository

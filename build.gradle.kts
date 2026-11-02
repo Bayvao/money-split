@@ -37,32 +37,11 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-data-jdbc-test")
     testImplementation("org.springframework.boot:spring-boot-starter-liquibase-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
-    testImplementation(platform("org.testcontainers:testcontainers-bom:2.0.5"))
-    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
-    testImplementation("org.testcontainers:testcontainers-mysql")
     testCompileOnly("org.projectlombok:lombok")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testAnnotationProcessor("org.projectlombok:lombok")
 }
 
-tasks.test {
+tasks.withType<Test> {
     useJUnitPlatform()
-    useJUnitPlatform {
-        excludeTags("integration")
-    }
-}
-
-val integrationTest = tasks.register<Test>("integrationTest") {
-    description = "Runs MySQL-backed integration tests."
-    group = LifecycleBasePlugin.VERIFICATION_GROUP
-    testClassesDirs = sourceSets["test"].output.classesDirs
-    classpath = sourceSets["test"].runtimeClasspath
-    shouldRunAfter(tasks.test)
-    useJUnitPlatform {
-        includeTags("integration")
-    }
-}
-
-tasks.check {
-    dependsOn(integrationTest)
 }
