@@ -1,0 +1,4 @@
+databaseChangeLog:
+  # Keep migrations append-only so every environment applies the same ordered schema history.
+  - include:
+      file: db/changelog/changes/001-foundation.sql

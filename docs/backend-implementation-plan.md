@@ -1,9 +1,9 @@
 # Money Split Backend Implementation Plan
 
-**Status:** Proposed execution plan  
+**Status:** Approved incremental execution plan
 **Scope:** Backend only  
 **Source of truth:** [Technical design](design.md)  
-**Current baseline:** Generated Spring Boot application with no domain implementation
+**Current baseline:** Spring Boot application with CI/security automation and no merged domain implementation
 
 ## 1. Objective
 
@@ -13,16 +13,18 @@ This plan does not include web or mobile implementation. It does include the RES
 
 ## 2. Delivery principles
 
-1. Build one complete behavior at a time: API, application service, domain rules, persistence, migration, security, tests, and documentation.
-2. Start with a group slice that proves the architecture. Do not create empty packages for every future module.
-3. Use TDD for domain and application behavior. Add the failing test before implementation.
-4. Keep financial calculations pure and independent of Spring, SQL, clocks, networks, and providers.
-5. Use MySQL for persistence integration tests. Do not use H2 as a substitute for MySQL constraints or locking.
-6. Apply Liquibase migrations before adding repository code that depends on them.
-7. Keep external identity, FX, and notification vendors behind narrow ports. Select vendors at the latest responsible milestone.
-8. Keep controllers thin. They validate transport input and call application services; they do not calculate balances or access JDBC directly.
-9. Keep the immutable journal and revisions authoritative. Treat balances and reports as rebuildable projections.
-10. Do not introduce message brokers, Redis, Kubernetes, JPA, event sourcing frameworks, or service decomposition before a measured need.
+1. Build one independently reviewable capability at a time. A behavior PR includes only the API, application, domain, persistence, security, tests, and documentation needed for that behavior.
+2. Allow a schema-only prerequisite only when it has direct MySQL integration tests and the next behavior depends on the database contract.
+3. Use TDD for domain and application behavior. Add the failing test before implementation; write migration tests before or with schema changes.
+4. Add JavaDoc to every new or changed Java method and constructor, including test methods and helpers. State what it does and document parameters, return values, and declared exceptions where applicable. Use `{@inheritDoc}` only when the inherited contract is complete.
+5. Inside methods, add concise intent comments before important or non-obvious business rules, algorithms, transaction or lock ordering, and SQL. Query comments explain purpose, authorization scope, filtering, joins, or locking behavior rather than restating syntax.
+6. Keep financial calculations pure and independent of Spring, SQL, clocks, networks, and providers.
+7. Use MySQL for persistence integration tests. Do not use H2 as a substitute for MySQL constraints or locking.
+8. Apply Liquibase migrations before adding repository code that depends on them.
+9. Keep external identity, FX, and notification vendors behind narrow ports. Select vendors at the latest responsible milestone.
+10. Keep controllers thin. They validate transport input and call application services; they do not calculate balances or access JDBC directly.
+11. Keep the immutable journal and revisions authoritative. Treat balances and reports as rebuildable projections.
+12. Do not introduce message brokers, Redis, Kubernetes, JPA, event sourcing frameworks, or service decomposition before a measured need.
 
 ## 3. Current project assessment
 
@@ -116,19 +118,17 @@ Spring Modulith and ArchUnit are deferred. Package discipline and focused integr
 
 ## 5. Initial build and dependency changes
 
-### 5.1 Required for the first implementation PR
+### 5.1 Required for F01
 
 Add dependencies compatible with the Spring Boot dependency-management version:
 
 | Change | Purpose |
 |---|---|
-| OAuth2 resource-server starter | Validate production OIDC JWT access tokens |
-| Validation starter | Jakarta Bean Validation for API inputs and typed configuration |
-| Spring Security test support | Supply authenticated JWT principals in MockMvc tests without a live identity provider |
 | Testcontainers JUnit and MySQL modules | Run persistence, Liquibase, authorization, and locking tests against MySQL when a container runtime is available |
-| Gradle `jacoco` plugin | Enforce and report coverage without adding an external coverage product |
 
 Use the Spring Boot BOM for managed versions where available. Do not hardcode library versions until Gradle dependency resolution confirms whether Boot manages them.
+
+Add the OAuth2 resource-server starter, validation starter, Spring Security test support, and JaCoCo only with F02, when production Java security behavior first requires them.
 
 The existing Spring Data JDBC dependency is sufficient for `JdbcClient`, `NamedParameterJdbcTemplate`, transactions, and explicit repositories. Do not add JPA.
 
@@ -154,24 +154,21 @@ Keep secrets and environment-specific values outside source control.
 
 | Profile | Use |
 |---|---|
-| Default | Production-shaped behavior; requires datasource and OIDC configuration |
-| `local` | Developer MySQL and a real/local OIDC issuer; never bypass authorization with a trusted header |
-| `test` | Test datasource plus a test-only JWT decoder or Spring Security test principal support |
+| Default | Production-shaped behavior; F01 requires datasource configuration and F02 adds OIDC configuration |
+| `local` | Developer MySQL; from F02 onward use a real/local OIDC issuer and never a trusted-header bypass |
+| `test` | Isolated MySQL datasource; from F02 onward add a test-only JWT decoder or Spring Security test principal support |
 
-Tests must not contact a real OIDC issuer. Test security configuration belongs under `src\test`, not production sources.
+After F02, tests must not contact a real OIDC issuer. Test security configuration belongs under `src\test`, not production sources.
 
-### 6.2 First-iteration environment variables
+### 6.2 F01 environment variables
 
 ```text
 SPRING_DATASOURCE_URL
 SPRING_DATASOURCE_USERNAME
 SPRING_DATASOURCE_PASSWORD
-OIDC_ISSUER_URI
-OIDC_AUDIENCE
-APP_GROUP_MAX_MEMBERS
 ```
 
-Later milestones add variables such as FX provider URL/key, rate-age limit, idempotency retention, sync retention, outbox lease duration, and notification provider credentials.
+F01 requires only the three datasource variables. F02 introduces the OIDC variables, and F06 introduces `APP_GROUP_MAX_MEMBERS`. Later features add variables such as FX provider URL/key, rate-age limit, idempotency retention, sync retention, outbox lease duration, and notification provider credentials.
 
 Validate required production configuration at startup. Do not provide default credentials or a production authentication bypass. Redact secret values from startup errors and logs.
 
@@ -183,14 +180,9 @@ Preferred integration-test path:
 - Spring's dynamic properties or service-connection support supplies the datasource.
 - Liquibase applies the same changelog used in production.
 
-This path requires a Docker-compatible container runtime; do not assume every developer machine has one. Before merging PR 1, the team must choose one supported fallback:
+This path requires a Docker-compatible container runtime. F01 also supports a datasource supplied through environment variables; CI uses an isolated MySQL service. Both paths run MySQL and must never point tests at a shared development or production schema.
 
-1. A dedicated local MySQL database configured through environment variables.
-2. A CI-provided MySQL service with an isolated database per test run.
-
-The fallback must still run MySQL and must never point tests at a shared development or production schema.
-
-## 7. Cross-cutting rules from the first PR
+## 7. Cross-cutting rules introduced when relevant
 
 ### 7.1 API rules
 
@@ -207,7 +199,7 @@ The fallback must still run MySQL and must never point tests at a shared develop
 
 ### 7.2 Idempotency rules
 
-Group creation does not need the financial idempotency subsystem in PR 1. Add it before the first financial write.
+Group creation in F04 does not need the financial idempotency subsystem. Add it before the first financial write in F16.
 
 For financial commands:
 
@@ -237,12 +229,62 @@ Sizing is relative complexity, not a calendar estimate:
 - **S:** 1-3 points
 - **M:** 3-5 points
 - **L:** 5-8 points
-- Any item larger than L must be split before implementation.
+- No implementation PR may exceed M. Split any feature estimated as L before coding begins.
 
-### PR 1 - Authenticated group creation and retrieval
+### Small-feature pull request sequence
 
-**Size:** L  
-**Prerequisites:** Choose the supported MySQL integration-test path and provide CI access to it.
+Each row is one branch, one pull request, one change record under `docs\prs`, and one exact commit message. A feature may start only after all dependencies are merged into `master` and the branch has been created from a freshly pulled `origin/master`.
+
+| ID | Feature | Size | Depends on | Independently verifiable outcome |
+|---|---|---:|---|---|
+| F01 | Foundation schema and currency catalog | S | CI baseline | Liquibase creates the five foundation tables and exact supported currencies on MySQL |
+| F02 | JWT request-security boundary | S | F01 | Issuer, audience, timestamps, subject mapping, `401`, and public-route behavior are tested |
+| F03 | Concurrent application-user provisioning | S | F02 | Exact `(issuer, subject)` identities resolve to one durable user under concurrent first access |
+| F04 | Authenticated group creation | M | F03 | `POST /groups` atomically creates the group, creator membership, and audit row |
+| F05 | Membership-scoped group reads | S | F04 | List/get expose only active memberships and hide inaccessible IDs with the same `404` |
+| F06 | Invitation issuance | S | F05 | An active member creates an expiring, hashed, recipient-bound invitation |
+| F07 | Invitation acceptance | M | F06 | Single-use acceptance enforces recipient, expiry, replay, concurrency, and member limit |
+| F08 | Group member listing | S | F07 | Active members can list the current membership without privilege fields |
+| F09 | Optimistic group rename | S | F05 | Any active member can rename with `If-Match`; stale versions fail |
+| F10 | Money and minor-unit primitives | S | F01 | Precision, overflow, currency scale, and exact arithmetic are pure and deterministic |
+| F11 | Equal and exact allocation | S | F10 | Both modes conserve totals with stable remainder ordering |
+| F12 | Percentage and share allocation | S | F11 | Both modes conserve totals and reject invalid weights or percentages |
+| F13 | Same-currency and manual FX resolution | S | F10 | Rate provenance, precision, staleness rules, and conversion invariants are pure |
+| F14 | Stored FX snapshots and lookup | M | F13 | Immutable rates persist and the authorized lookup API selects valid history |
+| F15 | Expense, journal, balance, and idempotency schema | M | F05, F11 | MySQL constraints prove immutable posting and uniqueness contracts |
+| F16 | Equal same-currency expense posting | M | F15 | One financial transaction writes expense, journal, balance, audit, and idempotency outcome |
+| F17 | Expense reads and operation recovery | S | F16 | Authorized get/list and retry-outcome recovery return the stored posting |
+| F18 | Exact, percentage, and share expense inputs | S | F12, F16 | API validation maps each split mode to stored authoritative allocations |
+| F19 | Multi-currency expense posting | M | F14, F18 | Original/base amounts and immutable FX provenance conserve totals |
+| F20 | Expense replacement revision | M | F19 | Creator-only `PUT` reverses then replaces once under optimistic locking |
+| F21 | Expense logical deletion | S | F20 | Creator-only `DELETE` appends one exact reversal and preserves history |
+| F22 | Balance reads and projection rebuild | M | F21 | Stored balances match a rebuild from the immutable journal |
+| F23 | Debt simplification | S | F22 | Deterministic suggestions preserve every net position and use at most `n - 1` transfers |
+| F24 | Group leave workflow | S | F22 | Only zero-balance members without blocking financial workflows can leave |
+| F25 | Settlement proposal | S | F22 | Authorized partial/full proposals persist as pending without changing balances |
+| F26 | Settlement decision workflow | M | F25 | Receiver confirm/reject and sender cancel transitions are race-safe and authorized |
+| F27 | Consensual settlement reversal | S | F26 | Approved reversal creates one immutable compensating journal batch |
+| F28 | Personal ledger and category foundation | M | F14 | Private reporting currency and category lifecycle remain user-isolated |
+| F29 | Personal entry create and read | M | F28 | Manual entries use immutable revisions, idempotency, and stable FX |
+| F30 | Personal entry correction | S | F29 | Update/delete append reversals and preserve history |
+| F31 | Transactional outbox worker | M | F21, F30 | Lease, retry, replay, and dead-letter behavior never changes source transactions |
+| F32 | Shared-expense personal attribution | M | F31 | Each participant receives only their allocation in source-version order |
+| F33 | Monthly budgets | S | F32 | Overall/category limits evaluate by reporting month and user timezone |
+| F34 | Monthly reports | M | F33 | Income, spending, cash flow, attribution completeness, and balances reconcile |
+| F35 | Ordered incremental synchronization | M | F27, F34 | Authorized scope sequences, changes, tombstones, retention, and cursor expiry are gap-free |
+| F36 | Materialized bootstrap snapshots | M | F35 | A bounded snapshot resumes from its captured high-water mark without gaps |
+| F37 | Outbox-backed notifications | M | F31 | Deduplicated delivery retries cannot roll back financial transactions |
+| F38 | Authorization and input hardening | M | All public features | Authorization matrix, request limits, privacy responses, and log redaction pass |
+| F39 | Rate limiting and observability | M | F38 | Selected rate limits, health, logs, metrics, traces, and alerts are production-ready |
+| F40 | Reconciliation and rebuild operations | M | F39 | Integrity checks block unsafe writes and projection rebuilds are exercised |
+| F41 | Load, backup, restore, and release evidence | M | F40 | Capacity, recovery, OpenAPI compatibility, and smoke evidence meet release gates |
+
+The capability milestones below group related outcomes for architectural context. They are not pull request boundaries.
+
+### Capability milestone 1 - Identity and group foundation
+
+**Delivery features:** F01-F05
+**Prerequisites:** The CI/security baseline.
 
 Deliver a working authenticated API slice:
 
@@ -284,12 +326,12 @@ Acceptance:
 - A fresh MySQL schema migrates and the integration suite passes.
 - Changed-code coverage is at least 80%.
 
-Deferred from PR 1: invitations, group updates, leave, expenses, balances, idempotency storage, sync feeds, and external OIDC-provider-specific claims beyond standard JWT validation.
+Deferred from this milestone: invitations, group updates, leave, expenses, balances, idempotency storage, sync feeds, and provider-specific OIDC claims beyond standard JWT validation.
 
-### PR 2 - Invitations and membership visibility
+### Capability milestone 2 - Invitations and membership visibility
 
-**Size:** M  
-**Depends on:** PR 1
+**Delivery features:** F06-F09
+**Depends on:** Capability milestone 1
 
 Deliver:
 
@@ -315,10 +357,10 @@ Tests cover token hashing, expiry, replay, recipient mismatch, concurrent accept
 
 Deferred: member removal and leaving. Leaving depends on authoritative balances and pending settlements and is implemented after those exist.
 
-### PR 3 - Money and split engine
+### Capability milestone 3 - Money and split engine
 
-**Size:** M  
-**Depends on:** PR 1
+**Delivery features:** F10-F12
+**Depends on:** F01
 
 Implement pure domain types:
 
@@ -343,10 +385,10 @@ Exit criteria:
 
 No public endpoint is required. This is a small prerequisite domain change, not broad scaffolding.
 
-### PR 4 - FX snapshots and resolution
+### Capability milestone 4 - FX snapshots and resolution
 
-**Size:** M  
-**Depends on:** PR 3  
+**Delivery features:** F13-F14
+**Depends on:** Capability milestone 3
 **Decision needed before completion:** Manual-rate product policy. External provider selection may remain deferred.
 
 Deliver:
@@ -368,10 +410,10 @@ Tests cover same-currency rate 1, manual rates, unsupported pairs, stale/missing
 
 Deferred: a live provider adapter and scheduled ingestion until provider licensing and coverage are approved.
 
-### PR 5 - Equal same-currency expense and immutable ledger
+### Capability milestone 5 - Equal same-currency expense and immutable ledger
 
-**Size:** L  
-**Depends on:** PR 2 and PR 3
+**Delivery features:** F15-F17
+**Depends on:** Capability milestones 2 and 3
 
 Deliver the first financial write:
 
@@ -415,10 +457,10 @@ Acceptance:
 
 Deferred: cross-currency, non-equal splits, edits, deletes, and sync changes.
 
-### PR 6 - All split modes and multi-currency expenses
+### Capability milestone 6 - All split modes and multi-currency expenses
 
-**Size:** M  
-**Depends on:** PR 4 and PR 5  
+**Delivery features:** F18-F19
+**Depends on:** Capability milestones 4 and 5
 **Decision needed:** FX provider or an explicitly approved manual-only interim environment.
 
 Deliver:
@@ -436,10 +478,10 @@ Acceptance:
 - Offline/provisional client calculations cannot override authoritative server allocations.
 - New rates do not revalue existing revisions.
 
-### PR 7 - Creator-only expense correction
+### Capability milestone 7 - Creator-only expense correction
 
-**Size:** M  
-**Depends on:** PR 6
+**Delivery features:** F20-F21
+**Depends on:** Capability milestone 6
 
 Deliver creator-only replacement revisions and logical deletion:
 
@@ -458,10 +500,10 @@ Tests cover:
 - Retry cannot reverse twice.
 - Edits affecting a departed member fail with `FORMER_MEMBER_AFFECTED`.
 
-### PR 8 - Balances, simplification, and leaving
+### Capability milestone 8 - Balances, simplification, and leaving
 
-**Size:** M  
-**Depends on:** PR 7
+**Delivery features:** F22-F24
+**Depends on:** Capability milestone 7
 
 Deliver:
 
@@ -481,10 +523,10 @@ Acceptance:
 - Leaving is permitted only at zero balance and initially when there is no relevant pending financial workflow.
 - Projection rebuild equals stored balances.
 
-### PR 9 - External settlement workflow
+### Capability milestone 9 - External settlement workflow
 
-**Size:** L  
-**Depends on:** PR 8  
+**Delivery features:** F25-F27
+**Depends on:** Capability milestone 8
 **Decision needed:** Confirm the receiver-confirmation workflow before implementation.
 
 Deliver pending creation, receiver confirmation/rejection, sender cancellation, and consensual reversal. Confirmation and approved reversal create immutable journal batches.
@@ -495,10 +537,10 @@ Tests cover partial payments, stale ledger suggestions, concurrent confirmations
 
 No bank or payment-provider integration is included.
 
-### PR 10 - Personal categories and manual entries
+### Capability milestone 10 - Personal categories and manual entries
 
-**Size:** M  
-**Depends on:** PR 4
+**Delivery features:** F28-F30
+**Depends on:** Capability milestone 4
 
 Deliver:
 
@@ -518,10 +560,10 @@ personal_entry_revision
 
 Tests prove user isolation, revision history, FX stability, category archival behavior, idempotent financial writes, and timezone/reporting-month assignment.
 
-### PR 11 - Transactional outbox and shared-expense attribution
+### Capability milestone 11 - Transactional outbox and shared-expense attribution
 
-**Size:** L  
-**Depends on:** PR 7 and PR 10
+**Delivery features:** F31-F32
+**Depends on:** Capability milestones 7 and 10
 
 Deliver:
 
@@ -541,19 +583,19 @@ Acceptance:
 - Out-of-order revisions defer gaps rather than corrupting reports.
 - Worker failures are observable and recoverable.
 
-### PR 12 - Budgets and monthly reports
+### Capability milestone 12 - Budgets and monthly reports
 
-**Size:** M  
-**Depends on:** PR 11
+**Delivery features:** F33-F34
+**Depends on:** Capability milestone 11
 
 Deliver overall/category monthly budgets and reports for income, spending, cash flow, category totals, budget remaining, incomplete attribution status, and outstanding balances by group currency.
 
 Tests cover month/timezone boundaries, historical corrections, missing reporting FX, independent overall/category limits, and exclusion of settlements from spending.
 
-### PR 13A - Ordered incremental synchronization
+### Capability milestone 13A - Ordered incremental synchronization
 
-**Size:** L  
-**Depends on:** Stable group and personal mutations from PR 12
+**Delivery feature:** F35
+**Depends on:** Stable group and personal mutations from capability milestone 12
 
 Deliver:
 
@@ -565,10 +607,10 @@ Deliver:
 
 Tests include commit ordering, concurrent scope writes, membership revocation, cursor replay, partial local-apply simulation, and no skipped committed changes.
 
-### PR 13B - Materialized bootstrap snapshots
+### Capability milestone 13B - Materialized bootstrap snapshots
 
-**Size:** M  
-**Depends on:** PR 13A
+**Delivery feature:** F36
+**Depends on:** Capability milestone 13A
 
 Deliver bounded-lifetime, authorized, materialized snapshots with a captured high-water sequence and cursor-paged data.
 
@@ -579,19 +621,19 @@ Acceptance:
 - Expired/revoked snapshot access fails.
 - Unsent client drafts are unaffected by server resynchronization.
 
-### PR 14 - Notifications
+### Capability milestone 14 - Notifications
 
-**Size:** M  
-**Depends on:** PR 11  
+**Delivery feature:** F37
+**Depends on:** Capability milestone 11
 **Decision needed:** Provider and channels.
 
 Use the outbox for invitations, settlement actions, and budget thresholds. Add delivery deduplication, bounded retries, safe templates, and provider references.
 
 Provider failure must not roll back financial transactions. Do not claim exactly-once delivery when the provider does not support idempotency.
 
-### PR 15A - Security and operational hardening
+### Capability milestone 15A - Security and operational hardening
 
-**Size:** L  
+**Delivery features:** F38-F39
 **Depends on:** All public MVP endpoints  
 **Decisions needed:** Deployment platform, region, retention policy.
 
@@ -606,10 +648,10 @@ Deliver:
 - Container image and cloud-neutral runtime documentation.
 - Dependency, secret, and image scanning in CI.
 
-### PR 15B - Reconciliation and release evidence
+### Capability milestone 15B - Reconciliation and release evidence
 
-**Size:** L  
-**Depends on:** PR 15A
+**Delivery features:** F40-F41
+**Depends on:** Capability milestone 15A
 
 Deliver:
 
@@ -620,105 +662,56 @@ Deliver:
 - Backup/point-in-time recovery and restore-drill runbooks.
 - OpenAPI compatibility check and production smoke tests.
 
-## 9. First implementation PR in detail
+## 9. F01 implementation in detail
 
-PR 1 is the next coding step. It must prove a real behavior, not only configure frameworks.
+F01 is deliberately schema-only. It establishes a testable database contract without mixing authentication, repositories, HTTP behavior, or transaction orchestration into the same review.
 
-### 9.1 Suggested file tree
-
-Names may be adjusted during TDD, but responsibilities should remain narrow.
+### 9.1 File boundary
 
 ```text
 build.gradle.kts
-src\main\java\com\money\split\
-|-- MoneySplitApplication.java
-|-- platform\
-|   |-- api\
-|   |   |-- ApiProblem.java
-|   |   |-- ApiExceptionHandler.java
-|   |   `-- ErrorCode.java
-|   |-- config\
-|   |   `-- GroupProperties.java
-|   `-- security\
-|       |-- CurrentActor.java
-|       |-- CurrentActorProvider.java
-|       |-- JwtCurrentActorProvider.java
-|       `-- SecurityConfiguration.java
-|-- identity\
-|   |-- application\
-|   |   `-- CurrentUserService.java
-|   |-- domain\
-|   |   `-- AppUser.java
-|   `-- persistence\
-|       |-- UserRepository.java
-|       `-- JdbcUserRepository.java
-`-- groups\
-    |-- api\
-    |   |-- GroupController.java
-    |   |-- CreateGroupRequest.java
-    |   |-- GroupResponse.java
-    |   `-- GroupListResponse.java
-    |-- application\
-    |   |-- GroupService.java
-    |   `-- GroupRepository.java
-    |-- domain\
-    |   |-- Group.java
-    |   |-- GroupId.java
-    |   `-- GroupStatus.java
-    `-- persistence\
-        `-- JdbcGroupRepository.java
-
+.github\workflows\ci.yml
 src\main\resources\
 |-- application.properties
-|-- application-local.properties
 `-- db\changelog\
     |-- db.changelog-master.yaml
-    `-- changes\001-foundation.yaml
-
-src\test\java\com\money\split\
-|-- support\
-|   |-- MySqlIntegrationTest.java
-|   `-- TestSecurityConfiguration.java
-|-- groups\
-|   |-- GroupServiceTest.java
-|   |-- GroupApiIntegrationTest.java
-|   `-- GroupAuthorizationIntegrationTest.java
-`-- platform\
-    |-- LiquibaseMigrationIntegrationTest.java
-    `-- ApiProblemIntegrationTest.java
+    `-- changes\001-foundation.sql
+src\test\
+|-- java\com\money\split\
+|   |-- MoneySplitApplicationTests.java
+|   |-- platform\LiquibaseMigrationIntegrationTest.java
+|   `-- support\
+|       |-- MySqlIntegrationTest.java
+|       `-- MySqlTestDatabase.java
+`-- resources\application-test.properties
+docs\prs\foundation-schema-currency-catalog.md
 ```
 
-`TestSecurityConfiguration` must exist only in test sources. Prefer Spring Security MockMvc JWT support over a test HTTP header.
+### 9.2 F01 implementation checklist
 
-### 9.2 PR 1 implementation checklist
+- [x] Configure the Liquibase master changelog and environment-based datasource.
+- [x] Add `app_user`, `currency`, `split_group`, `group_member`, and `audit_event`.
+- [x] Add foreign keys, case-sensitive `(issuer, subject)` uniqueness, checks, and required indexes.
+- [x] Seed exactly the approved 16 currencies with explicit fraction digits.
+- [x] Keep group membership free of role, owner, and administrator fields.
+- [x] Default group ledger, synchronization, and resource versions to zero.
+- [x] Add pinned Testcontainers MySQL support and an isolated external-datasource fallback.
+- [x] Execute the migration in CI instead of disabling Liquibase.
+- [x] Add MySQL integration tests for tables, catalog metadata, identity uniqueness, privilege-column exclusion, version defaults, and currency referential integrity.
+- [x] Add JavaDoc to changed Java methods and focused comments around non-obvious SQL and test infrastructure.
+- [x] Update README and the dedicated PR change record.
 
-- [ ] Add required security, validation, MySQL-test, and coverage dependencies.
-- [ ] Configure the Liquibase master changelog.
-- [ ] Add `app_user`, `currency`, `split_group`, `group_member`, and `audit_event`.
-- [ ] Add foreign keys, unique `(issuer, subject)`, membership uniqueness, checks, and required indexes.
-- [ ] Seed only the supported currency metadata needed by the application; make the seed explicit and versioned.
-- [ ] Validate issuer, audience, subject, display-name fallback, UUIDs, group name, currency, and IANA timezone.
-- [ ] Implement concurrent-safe user provisioning without merging identities by email.
-- [ ] Implement group creation and creator membership in one transaction.
-- [ ] Implement membership-scoped get/list queries.
-- [ ] Add request IDs, problem responses, ETags, and OpenAPI descriptions.
-- [ ] Add unit tests before application code.
-- [ ] Add MySQL integration tests for migrations, API behavior, constraints, transactions, and authorization.
-- [ ] Configure JaCoCo with at least 80% coverage for changed production code.
-- [ ] Update README configuration and test commands as part of the implementation PR.
+### 9.3 F01 review boundaries
 
-### 9.3 PR 1 review boundaries
+Reject F01 if it:
 
-Reject the PR if it:
-
-- Adds an admin/owner permission.
-- Trusts email as the immutable OIDC identity.
-- Allows an authentication-bypass header in production code.
-- Uses H2 to claim MySQL integration coverage.
-- Persists JWT access tokens.
-- Exposes groups before checking active membership.
-- Creates every future module as empty scaffolding.
-- Adds financial tables or generic event frameworks before their first behavior.
+- Adds controllers, security, application services, domain services, or JDBC repositories.
+- Adds an admin/owner permission or membership privilege column.
+- Treats email as an identity key.
+- Seeds currencies outside the approved product set.
+- Uses H2 or another database to claim MySQL compatibility.
+- Adds expense, settlement, personal-ledger, synchronization, or notification tables.
+- Introduces Java production behavior merely to justify the schema.
 
 ## 10. Migration sequence and rules
 
@@ -817,6 +810,8 @@ Concurrency tests must coordinate transactions with latches/barriers and assert 
 - Behavior and acceptance criteria are explicit.
 - A dedicated `docs\prs\<feature-slug>.md` change record follows `docs\prs\_template.md` and documents the exact commit message, feature, actual implementation, and technical test cases implemented.
 - Failing tests were added before or with the implementation.
+- Every new or changed Java method and constructor has useful JavaDoc describing its contract; test methods describe the behavior they verify.
+- Important business logic, algorithms, transaction/lock ordering, and SQL have concise comments explaining intent or mechanics without narrating obvious syntax.
 - Changed code has at least 80% line and branch coverage.
 - Unit tests are hermetic and fast.
 - MySQL-specific behavior has MySQL integration coverage.
@@ -845,28 +840,29 @@ Concurrency tests must coordinate transactions with latches/barriers and assert 
 ## 13. Dependency and critical path
 
 ```text
-PR 1 groups/auth
- |-- PR 2 invitations/membership
- |    `-- PR 5 expense ledger
+F01 schema
+ |-- F02 security -> F03 identity -> F04 group create -> F05 group reads
+ |                                      |                 |-- F06-F08 invitations/members
+ |                                      |                 `-- F09 group rename
+ |                                      `--------------------> F15-F17 first expense
  |
- `-- PR 3 money engine
-      |-- PR 4 FX
-      |    |-- PR 6 all splits/multi-currency
-      |    `-- PR 10 personal manual ledger
-      |
-      `-- PR 5 expense ledger
+ `-- F10 money -> F11-F12 allocation
+        |-- F13-F14 FX ----------------------> F19 multi-currency
+        `------------------------------------> F15-F18 expense foundation/splits
 
-PR 5 -> PR 6 -> PR 7 corrections -> PR 8 balances/simplification -> PR 9 settlements
-                         |
-                         `-> PR 11 outbox/attribution <- PR 10
-                                  `-> PR 12 budgets/reports
+F19 -> F20-F21 corrections -> F22 balances
+                                  |-- F23 simplification
+                                  |-- F24 leave
+                                  `-- F25-F27 settlements
 
-PR 12 -> PR 13A changes -> PR 13B snapshots
-PR 11 -> PR 14 notifications
-All public slices -> PR 15A hardening -> PR 15B release evidence
+F14 -> F28-F30 personal ledger
+F21 + F30 -> F31 outbox -> F32 attribution -> F33-F34 budgets/reports
+F27 + F34 -> F35 changes -> F36 snapshots
+F31 -> F37 notifications
+All public features -> F38-F39 hardening -> F40 reconciliation -> F41 release evidence
 ```
 
-The financial critical path is PR 1, PR 3, PR 5, PR 6, PR 7, PR 8, and PR 9. FX work can proceed after the money engine. Personal manual-ledger work can proceed after FX while the group settlement path continues.
+The financial critical path is F01-F05, F10-F12, and F15-F27. FX work can proceed after F10. Personal-ledger work can proceed after F14 while the group settlement path continues.
 
 Only independent branches should be developed concurrently. Avoid parallel changes to the same migrations or shared money primitives without a single owner.
 
@@ -874,24 +870,24 @@ Only independent branches should be developed concurrently. Avoid parallel chang
 
 | Decision | Latest responsible point | Interim approach |
 |---|---|---|
-| OIDC provider and exact claim mapping | Before a shared non-test environment after PR 1 | Standard issuer, audience, and subject boundary; test JWTs only in tests |
-| Integration-test MySQL runtime | Before PR 1 implementation merges | Prefer Testcontainers; approve isolated external MySQL fallback |
-| Supported currency set | During PR 1 | Versioned currency metadata; avoid claiming all ISO currencies are supported |
-| Manual FX policy | Before PR 4 completes | Implement port and validation without enabling unsafe defaults |
-| FX provider, licensing, and history | Before PR 6 provider mode is released | Same-currency/manual plus stored-rate boundary |
-| Receiver confirmation for settlements | Before PR 9 starts | Keep state model from the technical design |
+| OIDC provider and exact claim mapping | Before a shared non-test environment after F02 | Standard issuer, audience, and subject boundary; test JWTs only in tests |
+| Manual FX policy | Before F13 completes | Implement port and validation without enabling unsafe defaults |
+| FX provider, licensing, and history | Before F19 provider mode is released | Same-currency/manual plus stored-rate boundary |
+| Receiver confirmation for settlements | Before F25 starts | Keep state model from the technical design |
 | Creator-unavailable expense disputes | Before pilot users can create lasting group history | Preserve creator-only rule; no hidden admin override |
-| Notification channels/provider | Before PR 14 | Persist domain/outbox events without provider coupling |
-| Deployment platform and region | Before PR 15A | Cloud-neutral container and managed MySQL assumptions |
+| Notification channels/provider | Before F37 | Persist domain/outbox events without provider coupling |
+| Deployment platform and region | Before F39 | Cloud-neutral container and managed MySQL assumptions |
 | Legal retention/deletion requirements | Before production data lifecycle jobs | Preserve immutable financial integrity and configurable retention |
 | Rate-limit implementation | Before multi-instance production | Define limits in configuration; select platform/Redis support later |
-| Group member limit | Before PR 2 release | Configurable default of 50 from the technical design |
+| Group member limit | Before F06 release | Configurable default of 50 from the technical design |
 
 Escalate a decision only when its latest responsible point is approaching. Do not block independent domain work on vendor selection.
 
-## 15. Future implementation commands
+F01 resolved the supported currency set and the integration-test runtime: the catalog is versioned in Liquibase, local tests prefer the pinned Testcontainers image, and CI can supply an isolated MySQL datasource.
 
-These are intended commands for future code PRs. They are not a claim that the currently empty application is fully configured or that the commands pass today.
+## 15. Development commands
+
+Run commands from:
 
 From:
 
@@ -899,13 +895,13 @@ From:
 c:\Users\baverma\Downloads\Learning\Java Projects\Spring Boot\money-split
 ```
 
-Run the future test suite:
+Run the complete current test suite:
 
 ```powershell
-.\gradlew.bat clean test
+.\gradlew.bat clean check --no-daemon --stacktrace
 ```
 
-Run a future coverage verification task after JaCoCo is configured:
+Run coverage verification after F02 introduces changed production Java behavior and configures JaCoCo:
 
 ```powershell
 .\gradlew.bat test jacocoTestReport jacocoTestCoverageVerification
@@ -917,9 +913,7 @@ Run locally with explicitly supplied configuration:
 $env:SPRING_DATASOURCE_URL = "jdbc:mysql://localhost:3306/money_split"
 $env:SPRING_DATASOURCE_USERNAME = "money_split_app"
 $env:SPRING_DATASOURCE_PASSWORD = "<local-secret>"
-$env:OIDC_ISSUER_URI = "https://<local-or-development-issuer>"
-$env:OIDC_AUDIENCE = "money-split-api"
-.\gradlew.bat bootRun --args="--spring.profiles.active=local"
+.\gradlew.bat bootRun
 ```
 
-Never commit the values used for secrets. A future local setup guide may provide a dedicated database creation script or container definition after the team chooses its supported local MySQL path.
+Never commit secret values. F02 will document the additional OIDC variables when authentication exists.
