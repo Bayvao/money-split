@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Pull request open |
+| Status | Merged in PR #3; implementation subsequently reverted for redesign |
 | Branch | `feat/foundation-schema` |
 | Pull request | [#3](https://github.com/Bayvao/money-split/pull/3) |
 | Date | 2026-11-02 |
@@ -33,6 +33,8 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 ## Feature
 
 Establish the initial Liquibase-managed MySQL contract and the exact currency catalog required by later identity and group features.
+
+> **Lifecycle note:** This document preserves the historical PR #3 record. The schema, migration, and integration-test implementation described below is no longer present in the active codebase after the architecture reset.
 
 ### Scope
 
@@ -134,7 +136,4 @@ UUIDs use `BINARY(16)` for compact keys. OIDC issuer and subject use binary coll
 
 ## Deferred Work
 
-- F02 adds JWT validation and the current-actor boundary.
-- F03 adds concurrent-safe application-user provisioning.
-- F04 adds authenticated group creation with creator membership and audit persistence.
-- F05 adds membership-scoped group list and get APIs.
+- The previous feature sequence was retired. Replacement architecture and delivery slices will be defined after redesign approval.
