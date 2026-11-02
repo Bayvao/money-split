@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -15,6 +16,7 @@ import org.springframework.test.context.DynamicPropertySource;
 @Tag("integration")
 @SpringBootTest
 @ActiveProfiles("test")
+@Import(TestSecurityConfiguration.class)
 public abstract class MySqlIntegrationTest {
 
     @Autowired
