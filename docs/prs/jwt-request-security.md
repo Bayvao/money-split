@@ -2,18 +2,24 @@
 
 | Field | Value |
 |---|---|
-| Status | Draft |
+| Status | Pull request open |
 | Branch | `feat/jwt-request-security` |
-| Pull request | Pending |
+| Pull request | [#4](https://github.com/Bayvao/money-split/pull/4) |
 | Date | 2026-11-02 |
 | Related plan item | F02 - JWT request-security boundary |
 
 ## Commit Message
 
-The pull request initially retains this commit:
+The pull request retains these commits in order:
 
 ```text
 feat(security): add JWT request security boundary
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+```
+
+```text
+docs(pr): link JWT request security pull request
 
 Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 ```
