@@ -10,19 +10,19 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 /**
- * Verifies exact audience validation for OIDC access tokens.
+ * Verifies exact Firebase project audience validation.
  */
 class AudienceValidatorTest {
 
     private static final Instant ISSUED_AT = Instant.parse("2026-11-02T10:00:00Z");
-    private final AudienceValidator validator = new AudienceValidator("money-split-api");
+    private final AudienceValidator validator = new AudienceValidator("money-split-dev");
 
     /**
      * Accepts a token when the configured API audience is one of its audience values.
      */
     @Test
     void acceptsTheConfiguredAudience() {
-        assertThat(validator.validate(jwtWithAudience("another-api", "money-split-api")).hasErrors())
+        assertThat(validator.validate(jwtWithAudience("another-project", "money-split-dev")).hasErrors())
                 .isFalse();
     }
 
@@ -31,7 +31,7 @@ class AudienceValidatorTest {
      */
     @Test
     void rejectsMissingEmptyOrDifferentAudience() {
-        assertThat(validator.validate(jwtWithAudience("another-api")).hasErrors()).isTrue();
+        assertThat(validator.validate(jwtWithAudience("another-project")).hasErrors()).isTrue();
         assertThat(validator.validate(jwtWithAudience()).hasErrors()).isTrue();
         assertThat(validator.validate(jwtWithoutAudience()).hasErrors()).isTrue();
     }
@@ -55,8 +55,8 @@ class AudienceValidatorTest {
     private static Jwt jwtWithAudience(String... audiences) {
         return Jwt.withTokenValue("token")
                 .header("alg", "none")
-                .issuer("https://identity.example.com")
-                .subject("subject")
+                .issuer("https://securetoken.google.com/money-split-dev")
+                .subject("firebase-uid")
                 .issuedAt(ISSUED_AT)
                 .expiresAt(ISSUED_AT.plusSeconds(300))
                 .audience(List.of(audiences))
@@ -71,8 +71,8 @@ class AudienceValidatorTest {
     private static Jwt jwtWithoutAudience() {
         return Jwt.withTokenValue("token")
                 .header("alg", "none")
-                .issuer("https://identity.example.com")
-                .subject("subject")
+                .issuer("https://securetoken.google.com/money-split-dev")
+                .subject("firebase-uid")
                 .issuedAt(ISSUED_AT)
                 .expiresAt(ISSUED_AT.plusSeconds(300))
                 .build();

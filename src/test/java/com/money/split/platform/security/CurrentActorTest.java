@@ -6,7 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.Test;
 
 /**
- * Verifies normalization and validation of the authenticated OIDC actor.
+ * Verifies normalization and validation of the authenticated Firebase actor.
  */
 class CurrentActorTest {
 
@@ -16,13 +16,13 @@ class CurrentActorTest {
     @Test
     void acceptsAndNormalizesAValidActor() {
         CurrentActor actor = new CurrentActor(
-                " https://identity.example.com ",
-                " provider-subject ",
+                " https://securetoken.google.com/money-split-dev ",
+                "firebase-uid",
                 " Alice ",
                 " alice@example.com ");
 
-        assertThat(actor.issuer()).isEqualTo("https://identity.example.com");
-        assertThat(actor.subject()).isEqualTo("provider-subject");
+        assertThat(actor.issuer()).isEqualTo("https://securetoken.google.com/money-split-dev");
+        assertThat(actor.subject()).isEqualTo("firebase-uid");
         assertThat(actor.displayName()).isEqualTo("Alice");
         assertThat(actor.email()).isEqualTo("alice@example.com");
     }
@@ -32,10 +32,27 @@ class CurrentActorTest {
      */
     @Test
     void acceptsAnActorWithoutEmail() {
-        CurrentActor actor =
-                new CurrentActor("http://localhost:8080/issuer", "subject", "Alice", " ");
+        CurrentActor actor = new CurrentActor(
+                "https://securetoken.google.com/money-split-dev",
+                "firebase-uid",
+                "Alice",
+                " ");
 
         assertThat(actor.email()).isNull();
+    }
+
+    /**
+     * Accepts Apple's private relay address as optional mutable profile data.
+     */
+    @Test
+    void acceptsApplePrivateRelayEmail() {
+        CurrentActor actor = new CurrentActor(
+                "https://securetoken.google.com/money-split-dev",
+                "firebase-uid",
+                "Alice",
+                "random@privaterelay.appleid.com");
+
+        assertThat(actor.email()).isEqualTo("random@privaterelay.appleid.com");
     }
 
     /**
@@ -54,27 +71,27 @@ class CurrentActorTest {
                 .hasMessageContaining("issuer");
         assertThatThrownBy(
                 () -> constructActor(
-                        "ftp://identity.example.com", "subject", "Alice", null))
+                        "ftp://securetoken.google.com", "firebase-uid", "Alice", null))
                 .isInstanceOf(InvalidCurrentActorException.class)
                 .hasMessageContaining("issuer");
         assertThatThrownBy(() ->
                 constructActor(
-                        "https://identity.example.com?tenant=unsafe",
-                        "subject",
+                        "https://securetoken.google.com?tenant=unsafe",
+                        "firebase-uid",
                         "Alice",
                         null))
                 .isInstanceOf(InvalidCurrentActorException.class)
                 .hasMessageContaining("issuer");
         assertThatThrownBy(() ->
                 constructActor(
-                        "https://identity.example.com#unsafe",
-                        "subject",
+                        "https://securetoken.google.com#unsafe",
+                        "firebase-uid",
                         "Alice",
                         null))
                 .isInstanceOf(InvalidCurrentActorException.class)
                 .hasMessageContaining("issuer");
         assertThatThrownBy(() -> constructActor(
-                "https://" + "a".repeat(244) + ".com", "subject", "Alice", null))
+                "https://" + "a".repeat(244) + ".com", "firebase-uid", "Alice", null))
                 .isInstanceOf(InvalidCurrentActorException.class)
                 .hasMessageContaining("issuer");
     }
@@ -86,31 +103,42 @@ class CurrentActorTest {
     void rejectsInvalidRequiredClaims() {
         assertThatThrownBy(
                 () -> constructActor(
-                        "https://identity.example.com", null, "Alice", null))
+                        "https://securetoken.google.com/money-split-dev", null, "Alice", null))
                 .isInstanceOf(InvalidCurrentActorException.class)
-                .hasMessageContaining("subject");
+                .hasMessageContaining("Firebase UID");
         assertThatThrownBy(
                 () -> constructActor(
-                        "https://identity.example.com", " ", "Alice", null))
+                        "https://securetoken.google.com/money-split-dev", " ", "Alice", null))
                 .isInstanceOf(InvalidCurrentActorException.class)
-                .hasMessageContaining("subject");
+                .hasMessageContaining("Firebase UID");
         assertThatThrownBy(() ->
                 constructActor(
-                        "https://identity.example.com",
-                        "s".repeat(256),
+                        "https://securetoken.google.com/money-split-dev",
+                        "u".repeat(129),
                         "Alice",
                         null))
                 .isInstanceOf(InvalidCurrentActorException.class)
-                .hasMessageContaining("subject");
+                .hasMessageContaining("Firebase UID");
+        assertThatThrownBy(() ->
+                constructActor(
+                        "https://securetoken.google.com/money-split-dev",
+                        " padded",
+                        "Alice",
+                        null))
+                .isInstanceOf(InvalidCurrentActorException.class)
+                .hasMessageContaining("Firebase UID");
         assertThatThrownBy(
                 () -> constructActor(
-                        "https://identity.example.com", "subject", " ", null))
+                        "https://securetoken.google.com/money-split-dev",
+                        "firebase-uid",
+                        " ",
+                        null))
                 .isInstanceOf(InvalidCurrentActorException.class)
                 .hasMessageContaining("display name");
         assertThatThrownBy(() ->
                 constructActor(
-                        "https://identity.example.com",
-                        "subject",
+                        "https://securetoken.google.com/money-split-dev",
+                        "firebase-uid",
                         "a".repeat(121),
                         null))
                 .isInstanceOf(InvalidCurrentActorException.class)
@@ -124,16 +152,16 @@ class CurrentActorTest {
     void rejectsInvalidEmail() {
         assertThatThrownBy(() ->
                 constructActor(
-                        "https://identity.example.com",
-                        "subject",
+                        "https://securetoken.google.com/money-split-dev",
+                        "firebase-uid",
                         "Alice",
                         "not-an-email"))
                 .isInstanceOf(InvalidCurrentActorException.class)
                 .hasMessageContaining("email");
         assertThatThrownBy(() ->
                 constructActor(
-                        "https://identity.example.com",
-                        "subject",
+                        "https://securetoken.google.com/money-split-dev",
+                        "firebase-uid",
                         "Alice",
                         "a".repeat(310) + "@example.com"))
                 .isInstanceOf(InvalidCurrentActorException.class)
@@ -143,8 +171,8 @@ class CurrentActorTest {
     /**
      * Constructs an actor for validation assertions.
      *
-     * @param issuer      OIDC issuer
-     * @param subject     issuer-scoped subject
+     * @param issuer      Firebase issuer
+     * @param subject     Firebase UID
      * @param displayName display name
      * @param email       optional email
      */

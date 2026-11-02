@@ -6,16 +6,17 @@ import java.util.Locale;
 import java.util.regex.Pattern;
 
 /**
- * Validated OIDC identity and mutable profile claims for the current request.
+ * Validated Firebase identity and mutable profile claims for the current request.
  *
- * @param issuer      exact OIDC issuer
- * @param subject     issuer-scoped immutable subject
+ * @param issuer      exact Firebase issuer
+ * @param subject     issuer-scoped immutable Firebase UID
  * @param displayName normalized display name
  * @param email       optional normalized email profile claim
  */
 public record CurrentActor(String issuer, String subject, String displayName, String email) {
 
-    private static final int MAX_IDENTITY_LENGTH = 255;
+    private static final int MAX_ISSUER_LENGTH = 255;
+    private static final int MAX_FIREBASE_UID_LENGTH = 128;
     private static final int MAX_DISPLAY_NAME_LENGTH = 120;
     private static final int MAX_EMAIL_LENGTH = 320;
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
@@ -23,14 +24,14 @@ public record CurrentActor(String issuer, String subject, String displayName, St
     /**
      * Validates and normalizes claims before they cross into application code.
      *
-     * @param issuer      exact OIDC issuer
-     * @param subject     issuer-scoped immutable subject
+     * @param issuer      exact Firebase issuer
+     * @param subject     issuer-scoped immutable Firebase UID
      * @param displayName display name selected from the documented claim fallback
      * @param email       optional email profile claim
      */
     public CurrentActor {
         issuer = validateIssuer(issuer);
-        subject = requiredValue(subject, "subject", MAX_IDENTITY_LENGTH);
+        subject = validateFirebaseUid(subject);
         displayName = requiredValue(displayName, "display name", MAX_DISPLAY_NAME_LENGTH);
         email = validateEmail(email);
     }
@@ -43,7 +44,7 @@ public record CurrentActor(String issuer, String subject, String displayName, St
      * @throws InvalidCurrentActorException when the issuer is missing or malformed
      */
     private static String validateIssuer(String value) {
-        String issuer = requiredValue(value, "issuer", MAX_IDENTITY_LENGTH);
+        String issuer = requiredValue(value, "issuer", MAX_ISSUER_LENGTH);
         try {
             URI uri = new URI(issuer);
             String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
@@ -53,11 +54,11 @@ public record CurrentActor(String issuer, String subject, String displayName, St
                     || uri.getQuery() != null
                     || uri.getFragment() != null) {
                 throw new InvalidCurrentActorException(
-                        "OIDC issuer must be an absolute HTTP(S) URI without query or fragment");
+                        "Identity issuer must be an absolute HTTP(S) URI without query or fragment");
             }
             return issuer;
         } catch (URISyntaxException exception) {
-            throw new InvalidCurrentActorException("OIDC issuer is invalid");
+            throw new InvalidCurrentActorException("Identity issuer is invalid");
         }
     }
 
@@ -72,13 +73,30 @@ public record CurrentActor(String issuer, String subject, String displayName, St
      */
     private static String requiredValue(String value, String field, int maxLength) {
         if (value == null || value.isBlank()) {
-            throw new InvalidCurrentActorException("OIDC " + field + " is required");
+            throw new InvalidCurrentActorException("Identity " + field + " is required");
         }
         String normalized = value.strip();
         if (normalized.length() > maxLength) {
-            throw new InvalidCurrentActorException("OIDC " + field + " is too long");
+            throw new InvalidCurrentActorException("Identity " + field + " is too long");
         }
         return normalized;
+    }
+
+    /**
+     * Validates the immutable Firebase UID without changing its exact representation.
+     *
+     * @param value Firebase UID
+     * @return exact Firebase UID
+     * @throws InvalidCurrentActorException when the value is absent, padded, or too long
+     */
+    private static String validateFirebaseUid(String value) {
+        if (value == null || value.isBlank()) {
+            throw new InvalidCurrentActorException("Identity Firebase UID is required");
+        }
+        if (!value.equals(value.strip()) || value.length() > MAX_FIREBASE_UID_LENGTH) {
+            throw new InvalidCurrentActorException("Identity Firebase UID is invalid");
+        }
+        return value;
     }
 
     /**
@@ -95,7 +113,7 @@ public record CurrentActor(String issuer, String subject, String displayName, St
         String normalized = value.strip();
         if (normalized.length() > MAX_EMAIL_LENGTH
                 || !EMAIL_PATTERN.matcher(normalized).matches()) {
-            throw new InvalidCurrentActorException("OIDC email is invalid");
+            throw new InvalidCurrentActorException("Identity email is invalid");
         }
         return normalized;
     }

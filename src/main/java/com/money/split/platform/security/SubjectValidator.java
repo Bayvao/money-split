@@ -9,17 +9,18 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.util.StringUtils;
 
 /**
- * Requires the issuer-scoped subject used as the durable external identity.
+ * Requires the issuer-scoped Firebase UID used as the durable external identity.
  */
 public final class SubjectValidator implements OAuth2TokenValidator<Jwt> {
 
+    private static final int MAX_FIREBASE_UID_LENGTH = 128;
     private static final OAuth2Error INVALID_SUBJECT = new OAuth2Error(
             OAuth2ErrorCodes.INVALID_TOKEN,
-            "The token subject is not valid",
+            "The Firebase UID is not valid",
             "https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.2");
 
     /**
-     * Accepts a JWT only when its subject contains non-whitespace text.
+     * Accepts a JWT only when its subject is an unpadded Firebase UID of at most 128 characters.
      *
      * @param token decoded JWT
      * @return validator success or an invalid-token error
@@ -27,7 +28,10 @@ public final class SubjectValidator implements OAuth2TokenValidator<Jwt> {
     @Override
     @NullMarked
     public OAuth2TokenValidatorResult validate(Jwt token) {
-        if (StringUtils.hasText(token.getSubject())) {
+        String subject = token.getSubject();
+        if (StringUtils.hasText(subject)
+                && subject.equals(subject.strip())
+                && subject.length() <= MAX_FIREBASE_UID_LENGTH) {
             return OAuth2TokenValidatorResult.success();
         }
         return OAuth2TokenValidatorResult.failure(INVALID_SUBJECT);

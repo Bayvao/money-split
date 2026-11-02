@@ -9,7 +9,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.stereotype.Component;
 
 /**
- * Maps Spring Security's authenticated JWT to the framework-independent actor contract.
+ * Maps Spring Security's authenticated Firebase ID token to the application actor contract.
  */
 @Component
 public final class JwtCurrentActorProvider implements CurrentActorProvider {
@@ -27,7 +27,7 @@ public final class JwtCurrentActorProvider implements CurrentActorProvider {
 
         Jwt jwt = jwtAuthentication.getToken();
         URL issuer = jwt.getIssuer();
-        // Prefer a human name, then provider username, while guaranteeing a subject fallback.
+        // Prefer mutable profile names while guaranteeing the immutable Firebase UID as fallback.
         String displayName = firstNonBlank(
                 jwt.getClaimAsString("name"),
                 jwt.getClaimAsString("preferred_username"),

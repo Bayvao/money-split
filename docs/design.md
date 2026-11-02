@@ -30,7 +30,9 @@ Build a money management application for individuals and groups, accessible thro
 The following are architectural recommendations rather than additional confirmed requirements:
 
 - React with TypeScript for web and React Native for iOS/Android. Native clients can use the same API and synchronization protocol.
-- Managed OpenID Connect (OIDC) identity provider with email sign-in; additional social identity providers can be added later.
+- Firebase Authentication with Google and Apple sign-in through client SDKs.
+  The backend accepts only Firebase ID tokens and keeps the provider allowlist
+  configurable for deliberate future expansion.
 - One immutable base currency per group and one reporting currency per personal ledger.
 - Maximum 50 members per group for the MVP, enforced in configuration.
 - One payer per expense in the MVP; the data model allows multiple payer allocations later.
@@ -74,7 +76,7 @@ flowchart TB
     API["Spring Boot modular monolith"]
     DB[("Managed MySQL")]
     Worker["Background worker - same application codebase"]
-    Identity["OIDC identity provider"]
+    Identity["Firebase Authentication - Google / Apple"]
     FX["Exchange-rate provider"]
     Notify["Email / optional push provider"]
     Objects["Optional private receipt object storage"]
@@ -84,6 +86,7 @@ flowchart TB
     Edge --> API
     Web --> Identity
     Mobile --> Identity
+    API -. "public signing keys" .-> Identity
     API --> DB
     Worker --> DB
     Worker --> FX
@@ -99,7 +102,7 @@ Suggested package root: `com.money.split`.
 
 | Module | Responsibilities |
 |---|---|
-| `identity` | OIDC subject mapping, profile, preferences, account lifecycle |
+| `identity` | Firebase issuer/UID mapping, mutable profile, preferences, account lifecycle |
 | `groups` | Membership, invitations, shared ledger settings |
 | `expenses` | Input validation, splits, immutable revisions, creator authorization |
 | `ledger` | Journal posting, balances, reversals, reconciliation |
@@ -120,7 +123,12 @@ The current Gradle build declares Java 25, Spring Boot 4.1.2, Spring MVC, Spring
 
 The design retains Spring Data JDBC rather than introducing JPA. Use explicit repositories and SQL for aggregates, locking, reporting, and journal writes. Liquibase owns schema changes.
 
-Implementation should add Spring Security/OIDC resource-server support and Bean Validation through compatible Spring Boot starters. Verify selected dependency versions and runtime compatibility at implementation time; this document does not upgrade the project or assert that its dependencies have been resolved.
+Implementation uses Spring Security's OAuth2 resource-server support as the JWT
+verification engine, with a Firebase-specific issuer, project audience, token
+time, UID, and provider policy. A Firebase Admin SDK is not required for local
+signature and claim validation. Bean Validation checks deployment
+configuration. Verify dependency versions and runtime compatibility when later
+features add libraries.
 
 ## 4. Financial model and invariants
 
@@ -548,9 +556,24 @@ Membership revocation cannot remotely erase data from an offline device. Documen
 
 ## 11. Security and privacy
 
-- OIDC authorization code flow with PKCE for mobile; validate access-token issuer, audience, signature, and expiry in Spring Security.
-- Prefer a web backend-for-frontend session: browser holds a secure, HttpOnly, SameSite cookie; server holds provider tokens. Protect cookie-authenticated mutations with CSRF defenses.
-- Keep mobile refresh tokens in platform secure storage, not ordinary SQLite or web local storage.
+- Web and mobile clients authenticate Google or Apple users with the Firebase
+  SDK, obtain a short-lived Firebase ID token, and send it as a bearer
+  credential. The backend never accepts provider OAuth access tokens.
+- Validate the Google RS256 signature, project-derived issuer and audience,
+  `exp`, optional `nbf`, `iat`, `auth_time`, Firebase UID, and
+  `firebase.sign_in_provider` in Spring Security.
+- Allow `google.com` and `apple.com` initially. Add future Firebase providers
+  only through reviewed deployment configuration.
+- Use `(Firebase issuer, Firebase UID)` as durable external identity. Treat
+  email, including Apple private relay email, and display name as mutable
+  profile data rather than identity keys.
+- Keep client authentication state in Firebase SDK/platform-supported secure
+  storage. Do not persist bearer tokens in application logs, business tables,
+  URLs, or ordinary offline draft storage.
+- Local JWT validation uses Google's rotating public keys and does not
+  immediately detect token revocation or disabled users. Add service-account
+  backed revocation checks only if product policy requires immediate
+  invalidation beyond short token lifetime.
 - Enforce group membership and creator checks server-side on every resource operation, including synchronization and exports.
 - Personal reporting endpoints always derive the ledger owner from the principal.
 - Use TLS for transit and managed database/storage encryption at rest.

@@ -1,7 +1,7 @@
 package com.money.split.platform.security;
 
 /**
- * Provides the validated OIDC actor for the current security context.
+ * Provides the validated Firebase actor for the current security context.
  */
 @FunctionalInterface
 public interface CurrentActorProvider {

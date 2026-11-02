@@ -8,12 +8,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 /**
- * Verifies that authenticated tokens always carry a usable issuer-scoped subject.
+ * Verifies that authenticated tokens always carry a usable Firebase UID.
  */
 class SubjectValidatorTest {
 
     /**
-     * Accepts a non-blank subject.
+     * Accepts a non-blank Firebase UID within the documented limit.
      */
     @Test
     void acceptsNonBlankSubject() {
@@ -21,12 +21,14 @@ class SubjectValidatorTest {
     }
 
     /**
-     * Rejects absent and blank subjects before a request reaches application code.
+     * Rejects absent, blank, padded, and oversized Firebase UIDs.
      */
     @Test
-    void rejectsMissingOrBlankSubject() {
+    void rejectsInvalidFirebaseUid() {
         assertThat(new SubjectValidator().validate(jwt(null)).hasErrors()).isTrue();
         assertThat(new SubjectValidator().validate(jwt(" ")).hasErrors()).isTrue();
+        assertThat(new SubjectValidator().validate(jwt(" padded")).hasErrors()).isTrue();
+        assertThat(new SubjectValidator().validate(jwt("u".repeat(129))).hasErrors()).isTrue();
     }
 
     /**
@@ -39,7 +41,7 @@ class SubjectValidatorTest {
         Instant issuedAt = Instant.parse("2026-11-02T10:00:00Z");
         Jwt.Builder builder = Jwt.withTokenValue("token")
                 .header("alg", "none")
-                .issuer("https://identity.example.com")
+                .issuer("https://securetoken.google.com/money-split-dev")
                 .issuedAt(issuedAt)
                 .expiresAt(issuedAt.plusSeconds(300));
         if (subject != null) {

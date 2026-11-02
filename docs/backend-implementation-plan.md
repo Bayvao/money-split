@@ -154,11 +154,12 @@ Keep secrets and environment-specific values outside source control.
 
 | Profile | Use |
 |---|---|
-| Default | Production-shaped behavior; F01 requires datasource configuration and F02 adds OIDC configuration |
-| `local` | Developer MySQL; from F02 onward use a real/local OIDC issuer and never a trusted-header bypass |
+| Default | Production-shaped behavior; F01 requires datasource configuration and F02 adds Firebase project/provider configuration |
+| `local` | Developer MySQL; from F02 onward use a development Firebase project and never a trusted-header bypass |
 | `test` | Isolated MySQL datasource; from F02 onward add a test-only JWT decoder or Spring Security test principal support |
 
-After F02, tests must not contact a real OIDC issuer. Test security configuration belongs under `src\test`, not production sources.
+After F02, tests must not contact Firebase or Google's signing-key endpoint.
+Test security configuration belongs under `src\test`, not production sources.
 
 ### 6.2 F01 environment variables
 
@@ -168,7 +169,13 @@ SPRING_DATASOURCE_USERNAME
 SPRING_DATASOURCE_PASSWORD
 ```
 
-F01 requires only the three datasource variables. F02 introduces the OIDC variables, and F06 introduces `APP_GROUP_MAX_MEMBERS`. Later features add variables such as FX provider URL/key, rate-age limit, idempotency retention, sync retention, outbox lease duration, and notification provider credentials.
+F01 requires only the three datasource variables. F02 introduces
+`FIREBASE_PROJECT_ID` and optional
+`FIREBASE_ALLOWED_SIGN_IN_PROVIDERS` (default
+`google.com,apple.com`), and F06 introduces `APP_GROUP_MAX_MEMBERS`. Later
+features add variables such as FX provider URL/key, rate-age limit,
+idempotency retention, sync retention, outbox lease duration, and notification
+provider credentials.
 
 Validate required production configuration at startup. Do not provide default credentials or a production authentication bypass. Redact secret values from startup errors and logs.
 
@@ -238,8 +245,8 @@ Each row is one branch, one pull request, one change record under `docs\prs`, an
 | ID | Feature | Size | Depends on | Independently verifiable outcome |
 |---|---|---:|---|---|
 | F01 | Foundation schema and currency catalog | S | CI baseline | Liquibase creates the five foundation tables and exact supported currencies on MySQL |
-| F02 | JWT request-security boundary | S | F01 | Issuer, audience, timestamps, subject mapping, `401`, and public-route behavior are tested |
-| F03 | Concurrent application-user provisioning | S | F02 | Exact `(issuer, subject)` identities resolve to one durable user under concurrent first access |
+| F02 | Firebase ID-token request-security boundary | S | F01 | Google keys, project issuer/audience, token times, UID, provider allowlist, `401`, and public-route behavior are tested |
+| F03 | Concurrent application-user provisioning | S | F02 | Exact `(Firebase issuer, UID)` identities resolve to one durable user under concurrent first access |
 | F04 | Authenticated group creation | M | F03 | `POST /groups` atomically creates the group, creator membership, and audit row |
 | F05 | Membership-scoped group reads | S | F04 | List/get expose only active memberships and hide inaccessible IDs with the same `404` |
 | F06 | Invitation issuance | S | F05 | An active member creates an expiring, hashed, recipient-bound invitation |
@@ -288,7 +295,7 @@ The capability milestones below group related outcomes for architectural context
 
 Deliver a working authenticated API slice:
 
-- Resolve/provision an application user from OIDC `issuer + subject`.
+- Resolve/provision an application user from Firebase `issuer + UID`.
 - Create a group with name, base currency, and IANA timezone.
 - Add the creator as an active member without assigning an administrator role.
 - Get one authorized group and list the caller's active groups.
@@ -315,7 +322,8 @@ audit_event
 
 Acceptance:
 
-- An authenticated first-time JWT subject creates a group in one transaction and becomes an active member.
+- An authenticated first-time Firebase UID creates a group in one transaction
+  and becomes an active member.
 - A subsequent request reuses the same `app_user`; concurrent provisioning cannot create duplicates.
 - The caller can list/get the group.
 - A different authenticated user receives 404 and no group details.
@@ -326,7 +334,9 @@ Acceptance:
 - A fresh MySQL schema migrates and the integration suite passes.
 - Changed-code coverage is at least 80%.
 
-Deferred from this milestone: invitations, group updates, leave, expenses, balances, idempotency storage, sync feeds, and provider-specific OIDC claims beyond standard JWT validation.
+Deferred from this milestone: invitations, group updates, leave, expenses,
+balances, idempotency storage, sync feeds, immediate Firebase revocation checks,
+and new sign-in providers beyond the configured allowlist.
 
 ### Capability milestone 2 - Invitations and membership visibility
 
@@ -870,7 +880,8 @@ Only independent branches should be developed concurrently. Avoid parallel chang
 
 | Decision | Latest responsible point | Interim approach |
 |---|---|---|
-| OIDC provider and exact claim mapping | Before a shared non-test environment after F02 | Standard issuer, audience, and subject boundary; test JWTs only in tests |
+| Additional Firebase sign-in providers | Before enabling one in a shared environment | Default allowlist remains `google.com,apple.com`; extend only with reviewed configuration |
+| Immediate token revocation checks | Before policy requires invalidation faster than Firebase ID-token expiry | Local signature/claim validation; no Firebase Admin request on each API call |
 | Manual FX policy | Before F13 completes | Implement port and validation without enabling unsafe defaults |
 | FX provider, licensing, and history | Before F19 provider mode is released | Same-currency/manual plus stored-rate boundary |
 | Receiver confirmation for settlements | Before F25 starts | Keep state model from the technical design |
@@ -913,7 +924,11 @@ Run locally with explicitly supplied configuration:
 $env:SPRING_DATASOURCE_URL = "jdbc:mysql://localhost:3306/money_split"
 $env:SPRING_DATASOURCE_USERNAME = "money_split_app"
 $env:SPRING_DATASOURCE_PASSWORD = "<local-secret>"
+$env:FIREBASE_PROJECT_ID = "<firebase-project-id>"
+$env:FIREBASE_ALLOWED_SIGN_IN_PROVIDERS = "google.com,apple.com"
 .\gradlew.bat bootRun
 ```
 
-Never commit secret values. F02 will document the additional OIDC variables when authentication exists.
+Never commit secret values or bearer tokens. F02 documents Firebase project and
+provider configuration; Google and Apple client secrets are not backend
+configuration.

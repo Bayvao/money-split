@@ -12,11 +12,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.money.split.platform.api.RequestIdFilter;
 import com.money.split.support.MySqlIntegrationTest;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -90,10 +96,10 @@ class SecurityHttpIntegrationTest extends MySqlIntegrationTest {
      */
     @Test
     void allowsAuthenticatedTokenRequestsToReachMvc() throws Exception {
-        mockMvc.perform(get("/api/v1/not-implemented").with(jwt()))
+        mockMvc.perform(get("/api/v1/not-implemented").with(firebaseJwt()))
                 .andExpect(status().isNotFound());
 
-        mockMvc.perform(post("/api/v1/not-implemented").with(jwt()))
+        mockMvc.perform(post("/api/v1/not-implemented").with(firebaseJwt()))
                 .andExpect(status().isNotFound());
     }
 
@@ -105,5 +111,23 @@ class SecurityHttpIntegrationTest extends MySqlIntegrationTest {
     @Test
     void protectsNonPublicActuatorRoutes() throws Exception {
         mockMvc.perform(get("/actuator/info")).andExpect(status().isUnauthorized());
+    }
+
+    /**
+     * Creates a Firebase-shaped authenticated principal without invoking external key services.
+     *
+     * @return Spring Security request post-processor for one Firebase ID token
+     */
+    private static JwtRequestPostProcessor firebaseJwt() {
+        Instant issuedAt = Instant.parse("2026-11-02T10:00:00Z");
+        return jwt().jwt(token -> token
+                .header("alg", "RS256")
+                .issuer("https://securetoken.google.com/money-split-test")
+                .subject("firebase-uid")
+                .audience(List.of("money-split-test"))
+                .issuedAt(issuedAt)
+                .expiresAt(issuedAt.plusSeconds(3600))
+                .claim("auth_time", issuedAt.minusSeconds(60).getEpochSecond())
+                .claim("firebase", Map.of("sign_in_provider", "google.com")));
     }
 }
